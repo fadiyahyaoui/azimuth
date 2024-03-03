@@ -90,10 +90,9 @@ bot.onText(/\/start/, (msg) => {
 // Text message handler
 // ... (previous code)
 
-// Text message handler
 // ... (previous code)
 
-// Handle incoming messages
+// Text message handler
 bot.on('text', (msg) => {
   const chatId = msg.chat.id;
   const messageText = msg.text.trim();
@@ -191,7 +190,7 @@ bot.on('text', (msg) => {
         bot.sendMessage(chatId, 'Error reading KML file. Please try again.');
       }
     } else if (currentStage === 'search') {
-      const pciToSearch = messageText;
+      const pciToSearch = parseFloat(messageText);
 
       try {
         const xmlData = fs.readFileSync('doc.kml', 'utf-8');
@@ -212,7 +211,7 @@ bot.on('text', (msg) => {
                   data &&
                   data.$ &&
                   data.$.name === 'PCI' &&
-                  String(data._).trim() === pciToSearch
+                  parseFloat(data._) === pciToSearch
               )
             );
           });
