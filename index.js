@@ -163,12 +163,8 @@ bot.on('text', (msg) => {
               );
               const roundedAzimuth = Math.round(azimuth);
 
-              bot.sendMessage(
-                chatId,
-                `Secteur: ${entry.sector}\nPCI: ${entry.PCI}\n<b>${entry.distance} meters</b>\nAzimuth: ${roundedAzimuth}°`,
-                { parse_mode: 'HTML' }
-              );
-                          });
+              bot.sendMessage(chatId, `**${entry.distance} meters **\n Secteur: ${entry.sector}\nPCI: ${entry.PCI}\nAzimuth: ${roundedAzimuth}°`);
+            });
           });
 
 
