@@ -54,13 +54,6 @@ bot.onText(/\/azimuth/, (msg) => {
   waitForCoordinates[chatId] = { stage: 'latitude' };
 });
 
-// /search command handler
-bot.onText(/\/search/, (msg) => {
-  const chatId = msg.chat.id;
-  bot.sendMessage(chatId, 'Please enter the PCI number you want to search:');
-  waitForCoordinates[chatId] = { stage: 'search' };
-});
-
 // Handle incoming messages from the webhook
 app.post(WEBHOOK_ENDPOINT, (req, res) => {
   const { body } = req;
@@ -73,6 +66,8 @@ app.listen(port, () => {
   console.log(`Webhook server is running on port ${port}`);
 });
 
+
+
 // Callback query handler
 bot.on('callback_query', (callbackQuery) => {
   const chatId = callbackQuery.message.chat.id;
@@ -83,9 +78,6 @@ bot.on('callback_query', (callbackQuery) => {
   } else if (callbackQuery.data === 'reset') {
     delete waitForCoordinates[chatId];
     bot.sendMessage(chatId, 'Operation cancelled. Please choose an option:', replyOptions);
-  } else if (callbackQuery.data === 'search') {
-    bot.sendMessage(chatId, 'Please enter the PCI number you want to search:');
-    waitForCoordinates[chatId] = { stage: 'search' };
   }
 });
 
@@ -117,7 +109,7 @@ bot.on('text', (msg) => {
       try {
         const xmlData = fs.readFileSync('doc.kml', 'utf-8');
         parseString(xmlData, { explicitArray: false }, (err, result) => {
-
+  
           if (err) {
             console.error('Error parsing XML:', err);
             bot.sendMessage(chatId, 'Error parsing XML. Please try again.');
@@ -176,58 +168,6 @@ bot.on('text', (msg) => {
             });
           });
 
-          delete waitForCoordinates[chatId];
-        });
-      } catch (error) {
-        console.error('Error reading KML file:', error);
-        bot.sendMessage(chatId, 'Error reading KML file. Please try again.');
-      }
-    } else if (currentStage === 'search') {
-      const pciToSearch = msg.text.trim();
-
-      try {
-        const xmlData = fs.readFileSync('doc.kml', 'utf-8');
-        parseString(xmlData, { explicitArray: false }, (err, result) => {
-          if (err) {
-            console.error('Error parsing XML:', err);
-            bot.sendMessage(chatId, 'Error parsing XML. Please try again.');
-            return;
-          }
-
-          const kmlData = result.kml.Document.Placemark.filter(placemark => {
-            const simpleData = placemark.SimpleData;
-            return (
-              simpleData &&
-              Array.isArray(simpleData) &&
-              simpleData.find(data => data && data.$ && data.$.name === 'PCI' && data._ === pciToSearch)
-            );
-          });
-          
-          if (kmlData.length === 0) {
-            bot.sendMessage(chatId, `No location found with PCI number: ${pciToSearch}`);
-          } else {
-            kmlData.forEach(entry => {
-              // Calculate distance and bearing here
-              const latitude = waitForCoordinates[chatId].latitude;
-              const longitude = waitForCoordinates[chatId].longitude;
-              const kmlLatitude = parseFloat(entry.SimpleData.find(data => data.$.name === 'y')._);
-              const kmlLongitude = parseFloat(entry.SimpleData.find(data => data.$.name === 'x')._);
-
-              const distance = geolib.getDistance(
-                { latitude, longitude },
-                { latitude: kmlLatitude, longitude: kmlLongitude }
-              );
-
-              const azimuth = geolib.getRhumbLineBearing(
-                { latitude, longitude },
-                { latitude: kmlLatitude, longitude: kmlLongitude }
-              );
-
-              const roundedAzimuth = Math.round(azimuth);
-
-              bot.sendMessage(chatId, `PCI: ${pciToSearch}\n${distance} meters\nAzimuth: ${roundedAzimuth}°`);
-            });
-          }
 
           delete waitForCoordinates[chatId];
         });
@@ -237,4 +177,73 @@ bot.on('text', (msg) => {
       }
     }
   }
+  
+// Text message handler for the /search command
+bot.on('text', (msg) => {
+  const chatId = msg.chat.id;
+
+  if (waitForCoordinates[chatId] && waitForCoordinates[chatId].stage === 'search') {
+    const pciToSearch = msg.text.trim();
+
+    try {
+      const xmlData = fs.readFileSync('doc.kml', 'utf-8');
+      parseString(xmlData, { explicitArray: false }, (err, result) => {
+        if (err) {
+          console.error('Error parsing XML:', err);
+          bot.sendMessage(chatId, 'Error parsing XML. Please try again.');
+          return;
+        }
+
+        const kmlData = result.kml.Document.Placemark.filter(placemark => {
+          const simpleData = placemark.SimpleData;
+          return (
+            simpleData &&
+            Array.isArray(simpleData) &&
+            simpleData.find(
+              data =>
+                data &&
+                data.$ &&
+                data.$.name === 'PCI' &&
+                String(data._).trim() === pciToSearch
+            )
+          );
+        });
+
+        if (kmlData.length === 0) {
+          bot.sendMessage(chatId, `No location found with PCI number: ${pciToSearch}`);
+        } else {
+          kmlData.forEach(entry => {
+            // Calculate distance and bearing here
+            const latitude = waitForCoordinates[chatId].latitude;
+            const longitude = waitForCoordinates[chatId].longitude;
+            const kmlLatitude = parseFloat(entry.SimpleData.find(data => data.$.name === 'y')._);
+            const kmlLongitude = parseFloat(entry.SimpleData.find(data => data.$.name === 'x')._);
+
+            const distance = geolib.getDistance(
+              { latitude, longitude },
+              { latitude: kmlLatitude, longitude: kmlLongitude }
+            );
+
+            const azimuth = geolib.getRhumbLineBearing(
+              { latitude, longitude },
+              { latitude: kmlLatitude, longitude: kmlLongitude }
+            );
+
+            const roundedAzimuth = Math.round(azimuth);
+
+            bot.sendMessage(
+              chatId,
+              `PCI: ${pciToSearch}\n${distance} meters\nAzimuth: ${roundedAzimuth}°`
+            );
+          });
+        }
+
+        delete waitForCoordinates[chatId];
+      });
+    } catch (error) {
+      console.error('Error reading KML file:', error);
+      bot.sendMessage(chatId, 'Error reading KML file. Please try again.');
+    }
+  }
+});
 });
