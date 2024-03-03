@@ -88,6 +88,9 @@ bot.onText(/\/start/, (msg) => {
 });
 
 // Text message handler
+// ... (previous code)
+
+// Text message handler
 bot.on('text', (msg) => {
   const chatId = msg.chat.id;
 
@@ -168,6 +171,67 @@ bot.on('text', (msg) => {
             });
           });
 
+          delete waitForCoordinates[chatId];
+        });
+      } catch (error) {
+        console.error('Error reading KML file:', error);
+        bot.sendMessage(chatId, 'Error reading KML file. Please try again.');
+      }
+    } else if (currentStage === 'search') {
+      const pciToSearch = msg.text.trim();
+
+      try {
+        const xmlData = fs.readFileSync('doc.kml', 'utf-8');
+        parseString(xmlData, { explicitArray: false }, (err, result) => {
+          if (err) {
+            console.error('Error parsing XML:', err);
+            bot.sendMessage(chatId, 'Error parsing XML. Please try again.');
+            return;
+          }
+
+          const kmlData = result.kml.Document.Placemark.filter(placemark => {
+            const simpleData = placemark.SimpleData;
+            return (
+              simpleData &&
+              Array.isArray(simpleData) &&
+              simpleData.find(
+                data =>
+                  data &&
+                  data.$ &&
+                  data.$.name === 'PCI' &&
+                  String(data._).trim() === pciToSearch
+              )
+            );
+          });
+
+          if (kmlData.length === 0) {
+            bot.sendMessage(chatId, `No location found with PCI number: ${pciToSearch}`);
+          } else {
+            kmlData.forEach(entry => {
+              // Calculate distance and bearing here
+              const latitude = waitForCoordinates[chatId].latitude;
+              const longitude = waitForCoordinates[chatId].longitude;
+              const kmlLatitude = parseFloat(entry.SimpleData.find(data => data.$.name === 'y')._);
+              const kmlLongitude = parseFloat(entry.SimpleData.find(data => data.$.name === 'x')._);
+
+              const distance = geolib.getDistance(
+                { latitude, longitude },
+                { latitude: kmlLatitude, longitude: kmlLongitude }
+              );
+
+              const azimuth = geolib.getRhumbLineBearing(
+                { latitude, longitude },
+                { latitude: kmlLatitude, longitude: kmlLongitude }
+              );
+
+              const roundedAzimuth = Math.round(azimuth);
+
+              bot.sendMessage(
+                chatId,
+                `PCI: ${pciToSearch}\n${distance} meters\nAzimuth: ${roundedAzimuth}°`
+              );
+            });
+          }
 
           delete waitForCoordinates[chatId];
         });
@@ -177,73 +241,6 @@ bot.on('text', (msg) => {
       }
     }
   }
-  
-// Text message handler for the /search command
-bot.on('text', (msg) => {
-  const chatId = msg.chat.id;
-
-  if (waitForCoordinates[chatId] && waitForCoordinates[chatId].stage === 'search') {
-    const pciToSearch = msg.text.trim();
-
-    try {
-      const xmlData = fs.readFileSync('doc.kml', 'utf-8');
-      parseString(xmlData, { explicitArray: false }, (err, result) => {
-        if (err) {
-          console.error('Error parsing XML:', err);
-          bot.sendMessage(chatId, 'Error parsing XML. Please try again.');
-          return;
-        }
-
-        const kmlData = result.kml.Document.Placemark.filter(placemark => {
-          const simpleData = placemark.SimpleData;
-          return (
-            simpleData &&
-            Array.isArray(simpleData) &&
-            simpleData.find(
-              data =>
-                data &&
-                data.$ &&
-                data.$.name === 'PCI' &&
-                String(data._).trim() === pciToSearch
-            )
-          );
-        });
-
-        if (kmlData.length === 0) {
-          bot.sendMessage(chatId, `No location found with PCI number: ${pciToSearch}`);
-        } else {
-          kmlData.forEach(entry => {
-            // Calculate distance and bearing here
-            const latitude = waitForCoordinates[chatId].latitude;
-            const longitude = waitForCoordinates[chatId].longitude;
-            const kmlLatitude = parseFloat(entry.SimpleData.find(data => data.$.name === 'y')._);
-            const kmlLongitude = parseFloat(entry.SimpleData.find(data => data.$.name === 'x')._);
-
-            const distance = geolib.getDistance(
-              { latitude, longitude },
-              { latitude: kmlLatitude, longitude: kmlLongitude }
-            );
-
-            const azimuth = geolib.getRhumbLineBearing(
-              { latitude, longitude },
-              { latitude: kmlLatitude, longitude: kmlLongitude }
-            );
-
-            const roundedAzimuth = Math.round(azimuth);
-
-            bot.sendMessage(
-              chatId,
-              `PCI: ${pciToSearch}\n${distance} meters\nAzimuth: ${roundedAzimuth}°`
-            );
-          });
-        }
-
-        delete waitForCoordinates[chatId];
-      });
-    } catch (error) {
-      console.error('Error reading KML file:', error);
-      bot.sendMessage(chatId, 'Error reading KML file. Please try again.');
-    }
-  }
 });
-});
+
+// ... (rest of the code)
