@@ -5,7 +5,7 @@ const geolib = require('geolib');
 const express = require('express');
 const bodyParser = require('body-parser');
 
-const token = '6773169350:AAFMhb2bAWuwzUdxgW0bL4o2xUr4qowOCDU';  // Replace with your actual Telegram bot token
+const token = '6773169350:AAFMhb2bAWuwzUdxgW0bL4o2xUr4qowOCDU'; // Replace with your actual Telegram bot token
 const bot = new TelegramBot(token);
 
 const app = express();
@@ -31,8 +31,7 @@ const replyOptions = { reply_markup: { keyboard, one_time_keyboard: true, resize
 
 // Function to display locations based on distance blocks
 const displayLocations = (minDistance, maxDistance, kmlData, latitude, longitude) => {
-  const filteredBlock = kmlData
-    .filter(entry => entry.distance >= minDistance && entry.distance < maxDistance);
+  const filteredBlock = kmlData.filter(entry => entry.distance >= minDistance && entry.distance < maxDistance);
 
   const sortedBlock = filteredBlock.sort((a, b) => a.distance - b.distance);
 
@@ -49,8 +48,8 @@ bot.onText(/\/reset/, (msg) => {
 // /azimuth command handler
 bot.onText(/\/azimuth/, (msg) => {
   const chatId = msg.chat.id;
-  bot.sendMessage(chatId, 'Please enter the latitude:');
-  waitForCoordinates[chatId] = { stage: 'latitude' };
+  bot.sendMessage(chatId, 'Please give me your GPS coordinates in a single line (latitude,longitude):');
+  waitForCoordinates[chatId] = { stage: 'coordinates' };
 });
 
 // Handle incoming messages from the webhook
@@ -65,15 +64,13 @@ app.listen(port, () => {
   console.log(`Webhook server is running on port ${port}`);
 });
 
-
-
 // Callback query handler
 bot.on('callback_query', (callbackQuery) => {
   const chatId = callbackQuery.message.chat.id;
 
   if (callbackQuery.data === 'azimuth') {
-    bot.sendMessage(chatId, 'Please enter the latitude:');
-    waitForCoordinates[chatId] = { stage: 'latitude' };
+    bot.sendMessage(chatId, 'Please give me your GPS coordinates in a single line (latitude,longitude):');
+    waitForCoordinates[chatId] = { stage: 'coordinates' };
   } else if (callbackQuery.data === 'reset') {
     delete waitForCoordinates[chatId];
     bot.sendMessage(chatId, 'Operation cancelled. Please choose an option:', replyOptions);
@@ -93,17 +90,16 @@ bot.on('text', (msg) => {
   if (waitForCoordinates[chatId]) {
     const currentStage = waitForCoordinates[chatId].stage;
 
-    if (currentStage === 'latitude') {
-      waitForCoordinates[chatId].latitude = parseFloat(msg.text);
-      bot.sendMessage(chatId, 'Please enter the longitude:');
-      waitForCoordinates[chatId].stage = 'longitude';
-    } else if (currentStage === 'longitude') {
-      waitForCoordinates[chatId].longitude = parseFloat(msg.text);
+    if (currentStage === 'coordinates') {
+      const [latitude, longitude] = msg.text.split(',').map(coord => parseFloat(coord.trim()));
 
-      const latitude = waitForCoordinates[chatId].latitude;
-      const longitude = waitForCoordinates[chatId].longitude;
+      if (isNaN(latitude) || isNaN(longitude)) {
+        bot.sendMessage(chatId, 'Invalid GPS coordinates. Please provide valid coordinates.');
+        return;
+      }
 
       console.log(`Latitude: ${latitude}, Longitude: ${longitude}`);
+      bot.sendMessage(chatId, 'Coordinates received. Processing...');
 
       try {
         const xmlData = fs.readFileSync('doc.kml', 'utf-8');
