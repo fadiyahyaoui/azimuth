@@ -91,18 +91,31 @@ bot.onText(/\/start/, (msg) => {
 // ... (previous code)
 
 // Text message handler
+// ... (previous code)
+
+// Handle incoming messages
 bot.on('text', (msg) => {
   const chatId = msg.chat.id;
+  const messageText = msg.text.trim();
 
-  if (waitForCoordinates[chatId]) {
+  if (messageText.startsWith('/azimuth')) {
+    bot.sendMessage(chatId, 'Please enter the latitude:');
+    waitForCoordinates[chatId] = { stage: 'latitude' };
+  } else if (messageText.startsWith('/reset')) {
+    delete waitForCoordinates[chatId];
+    bot.sendMessage(chatId, 'Operation cancelled. Please choose an option:', replyOptions);
+  } else if (messageText.startsWith('/search')) {
+    bot.sendMessage(chatId, 'Please enter the PCI number you want to search:');
+    waitForCoordinates[chatId] = { stage: 'search' };
+  } else if (waitForCoordinates[chatId]) {
     const currentStage = waitForCoordinates[chatId].stage;
 
     if (currentStage === 'latitude') {
-      waitForCoordinates[chatId].latitude = parseFloat(msg.text);
+      waitForCoordinates[chatId].latitude = parseFloat(messageText);
       bot.sendMessage(chatId, 'Please enter the longitude:');
       waitForCoordinates[chatId].stage = 'longitude';
     } else if (currentStage === 'longitude') {
-      waitForCoordinates[chatId].longitude = parseFloat(msg.text);
+      waitForCoordinates[chatId].longitude = parseFloat(messageText);
 
       const latitude = waitForCoordinates[chatId].latitude;
       const longitude = waitForCoordinates[chatId].longitude;
@@ -178,7 +191,7 @@ bot.on('text', (msg) => {
         bot.sendMessage(chatId, 'Error reading KML file. Please try again.');
       }
     } else if (currentStage === 'search') {
-      const pciToSearch = msg.text.trim();
+      const pciToSearch = messageText;
 
       try {
         const xmlData = fs.readFileSync('doc.kml', 'utf-8');
@@ -209,10 +222,8 @@ bot.on('text', (msg) => {
           } else {
             kmlData.forEach(entry => {
               // Calculate distance and bearing here
-              const latitude = waitForCoordinates[chatId].latitude;
-              const longitude = waitForCoordinates[chatId].longitude;
-              const kmlLatitude = parseFloat(entry.SimpleData.find(data => data.$.name === 'y')._);
-              const kmlLongitude = parseFloat(entry.SimpleData.find(data => data.$.name === 'x')._);
+              const kmlLatitude = parseFloat(entry.y);
+              const kmlLongitude = parseFloat(entry.x);
 
               const distance = geolib.getDistance(
                 { latitude, longitude },
