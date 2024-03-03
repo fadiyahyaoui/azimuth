@@ -5,7 +5,7 @@ const geolib = require('geolib');
 const express = require('express');
 const bodyParser = require('body-parser');
 
-const token = '6773169350:AAFMhb2bAWuwzUdxgW0bL4o2xUr4qowOCDU'; // Replace with your actual Telegram bot token
+const token = '6773169350:AAFMhb2bAWuwzUdxgW0bL4o2xUr4qowOCDU';  // Replace with your actual Telegram bot token
 const bot = new TelegramBot(token);
 
 const app = express();
@@ -24,14 +24,16 @@ const waitForCoordinates = {};
 
 const keyboard = [
   [{ text: '/azimuth' }],
-  [{ text: '/reset' }]
+  [{ text: '/reset' }],
+  [{ text: '/search' }]
 ];
 
 const replyOptions = { reply_markup: { keyboard, one_time_keyboard: true, resize_keyboard: true } };
 
 // Function to display locations based on distance blocks
 const displayLocations = (minDistance, maxDistance, kmlData, latitude, longitude) => {
-  const filteredBlock = kmlData.filter(entry => entry.distance >= minDistance && entry.distance < maxDistance);
+  const filteredBlock = kmlData
+    .filter(entry => entry.distance >= minDistance && entry.distance < maxDistance);
 
   const sortedBlock = filteredBlock.sort((a, b) => a.distance - b.distance);
 
@@ -48,8 +50,15 @@ bot.onText(/\/reset/, (msg) => {
 // /azimuth command handler
 bot.onText(/\/azimuth/, (msg) => {
   const chatId = msg.chat.id;
-  bot.sendMessage(chatId, 'Please give me your GPS coordinates in a single line (latitude,longitude):');
-  waitForCoordinates[chatId] = { stage: 'coordinates' };
+  bot.sendMessage(chatId, 'Please enter the latitude:');
+  waitForCoordinates[chatId] = { stage: 'latitude' };
+});
+
+// /search command handler
+bot.onText(/\/search/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, 'Please enter the PCI number you want to search:');
+  waitForCoordinates[chatId] = { stage: 'search' };
 });
 
 // Handle incoming messages from the webhook
@@ -69,11 +78,14 @@ bot.on('callback_query', (callbackQuery) => {
   const chatId = callbackQuery.message.chat.id;
 
   if (callbackQuery.data === 'azimuth') {
-    bot.sendMessage(chatId, 'Please give me your GPS coordinates in a single line (latitude,longitude):');
-    waitForCoordinates[chatId] = { stage: 'coordinates' };
+    bot.sendMessage(chatId, 'Please enter the latitude:');
+    waitForCoordinates[chatId] = { stage: 'latitude' };
   } else if (callbackQuery.data === 'reset') {
     delete waitForCoordinates[chatId];
     bot.sendMessage(chatId, 'Operation cancelled. Please choose an option:', replyOptions);
+  } else if (callbackQuery.data === 'search') {
+    bot.sendMessage(chatId, 'Please enter the PCI number you want to search:');
+    waitForCoordinates[chatId] = { stage: 'search' };
   }
 });
 
@@ -90,21 +102,22 @@ bot.on('text', (msg) => {
   if (waitForCoordinates[chatId]) {
     const currentStage = waitForCoordinates[chatId].stage;
 
-    if (currentStage === 'coordinates') {
-      const [latitude, longitude] = msg.text.split(',').map(coord => parseFloat(coord.trim()));
+    if (currentStage === 'latitude') {
+      waitForCoordinates[chatId].latitude = parseFloat(msg.text);
+      bot.sendMessage(chatId, 'Please enter the longitude:');
+      waitForCoordinates[chatId].stage = 'longitude';
+    } else if (currentStage === 'longitude') {
+      waitForCoordinates[chatId].longitude = parseFloat(msg.text);
 
-      if (isNaN(latitude) || isNaN(longitude)) {
-        bot.sendMessage(chatId, 'Invalid GPS coordinates. Please provide valid coordinates.');
-        return;
-      }
+      const latitude = waitForCoordinates[chatId].latitude;
+      const longitude = waitForCoordinates[chatId].longitude;
 
       console.log(`Latitude: ${latitude}, Longitude: ${longitude}`);
-      bot.sendMessage(chatId, 'Coordinates received. Processing...');
 
       try {
         const xmlData = fs.readFileSync('doc.kml', 'utf-8');
         parseString(xmlData, { explicitArray: false }, (err, result) => {
-  
+
           if (err) {
             console.error('Error parsing XML:', err);
             bot.sendMessage(chatId, 'Error parsing XML. Please try again.');
@@ -163,6 +176,58 @@ bot.on('text', (msg) => {
             });
           });
 
+          delete waitForCoordinates[chatId];
+        });
+      } catch (error) {
+        console.error('Error reading KML file:', error);
+        bot.sendMessage(chatId, 'Error reading KML file. Please try again.');
+      }
+    } else if (currentStage === 'search') {
+      const pciToSearch = msg.text.trim();
+
+      try {
+        const xmlData = fs.readFileSync('doc.kml', 'utf-8');
+        parseString(xmlData, { explicitArray: false }, (err, result) => {
+          if (err) {
+            console.error('Error parsing XML:', err);
+            bot.sendMessage(chatId, 'Error parsing XML. Please try again.');
+            return;
+          }
+
+          const kmlData = result.kml.Document.Placemark.filter(placemark => {
+            const schemaData = placemark.ExtendedData && placemark.ExtendedData.SchemaData;
+            if (schemaData) {
+              const pci = schemaData.SimpleData.find(data => data.$.name === 'PCI');
+              return pci && pci._ === pciToSearch;
+            }
+            return false;
+          });
+
+          if (kmlData.length === 0) {
+            bot.sendMessage(chatId, `No location found with PCI number: ${pciToSearch}`);
+          } else {
+            kmlData.forEach(entry => {
+              // Calculate distance and bearing here
+              const latitude = waitForCoordinates[chatId].latitude;
+              const longitude = waitForCoordinates[chatId].longitude;
+              const kmlLatitude = parseFloat(entry.y);
+              const kmlLongitude = parseFloat(entry.x);
+
+              const distance = geolib.getDistance(
+                { latitude, longitude },
+                { latitude: kmlLatitude, longitude: kmlLongitude }
+              );
+
+              const azimuth = geolib.getRhumbLineBearing(
+                { latitude, longitude },
+                { latitude: kmlLatitude, longitude: kmlLongitude }
+              );
+
+              const roundedAzimuth = Math.round(azimuth);
+
+              bot.sendMessage(chatId, `PCI: ${pciToSearch}\n${distance} meters\nAzimuth: ${roundedAzimuth}°`);
+            });
+          }
 
           delete waitForCoordinates[chatId];
         });
