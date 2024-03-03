@@ -195,12 +195,8 @@ bot.on('text', (msg) => {
           }
 
           const kmlData = result.kml.Document.Placemark.filter(placemark => {
-            const schemaData = placemark.ExtendedData && placemark.ExtendedData.SchemaData;
-            if (schemaData) {
-              const pci = schemaData.SimpleData.find(data => data.$.name === 'PCI');
-              return pci && pci._ === pciToSearch;
-            }
-            return false;
+            const simpleData = placemark.SimpleData;
+            return simpleData && simpleData.find(data => data.$.name === 'PCI' && data._ === pciToSearch);
           });
 
           if (kmlData.length === 0) {
@@ -210,8 +206,8 @@ bot.on('text', (msg) => {
               // Calculate distance and bearing here
               const latitude = waitForCoordinates[chatId].latitude;
               const longitude = waitForCoordinates[chatId].longitude;
-              const kmlLatitude = parseFloat(entry.y);
-              const kmlLongitude = parseFloat(entry.x);
+              const kmlLatitude = parseFloat(entry.SimpleData.find(data => data.$.name === 'y')._);
+              const kmlLongitude = parseFloat(entry.SimpleData.find(data => data.$.name === 'x')._);
 
               const distance = geolib.getDistance(
                 { latitude, longitude },
