@@ -196,9 +196,13 @@ bot.on('text', (msg) => {
 
           const kmlData = result.kml.Document.Placemark.filter(placemark => {
             const simpleData = placemark.SimpleData;
-            return simpleData && simpleData.find(data => data.$.name === 'PCI' && data._ === pciToSearch);
+            return (
+              simpleData &&
+              Array.isArray(simpleData) &&
+              simpleData.find(data => data && data.$ && data.$.name === 'PCI' && data._ === pciToSearch)
+            );
           });
-
+          
           if (kmlData.length === 0) {
             bot.sendMessage(chatId, `No location found with PCI number: ${pciToSearch}`);
           } else {
