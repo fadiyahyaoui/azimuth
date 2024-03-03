@@ -108,72 +108,81 @@ bot.on('text', (msg) => {
       try {
         const xmlData = fs.readFileSync('doc.kml', 'utf-8');
         parseString(xmlData, { explicitArray: false }, (err, result) => {
-  
-          if (err) {
-            console.error('Error parsing XML:', err);
-            bot.sendMessage(chatId, 'Error parsing XML. Please try again.');
-            return;
-          }
-
-          const kmlData = [];
-          const processedLocations = new Set();
-
-          result.kml.Document.Placemark.forEach(placemark => {
-            if (placemark.ExtendedData && placemark.ExtendedData.SchemaData) {
-              const schemaData = placemark.ExtendedData.SchemaData;
-              const dataEntry = {};
-
-              schemaData.SimpleData.forEach(simpleData => {
-                dataEntry[simpleData.$.name] = simpleData._;
-              });
-
-              const locationKey = `${dataEntry.y}_${dataEntry.x}`;
-
-              if (!processedLocations.has(locationKey)) {
-                kmlData.push(dataEntry);
-                processedLocations.add(locationKey);
-              }
+    
+            if (err) {
+                console.error('Error parsing XML:', err);
+                bot.sendMessage(chatId, 'Error parsing XML. Please try again.');
+                return;
             }
-          });
-
-          kmlData.forEach(entry => {
-            const kmlLatitude = parseFloat(entry.y);
-            const kmlLongitude = parseFloat(entry.x);
-
-            const distance = geolib.getDistance(
-              { latitude, longitude },
-              { latitude: kmlLatitude, longitude: kmlLongitude }
-            );
-
-            entry.distance = distance;
-          });
-
-          const blocks = [];
-          blocks.push(displayLocations(0, 300, kmlData, latitude, longitude));
-          blocks.push(displayLocations(300, 500, kmlData, latitude, longitude));
-          blocks.push(displayLocations(500, 1000, kmlData, latitude, longitude));
-
-          blocks.forEach(block => block.sort((a, b) => a.distance - b.distance));
-
-          blocks.forEach(block => {
-            block.forEach(entry => {
-              const azimuth = geolib.getRhumbLineBearing(
-                { latitude, longitude },
-                { latitude: parseFloat(entry.y), longitude: parseFloat(entry.x) }
-              );
-              const roundedAzimuth = Math.round(azimuth);
-
-              bot.sendMessage(chatId, `Secteur: ${entry.sector}\nPCI: ${entry.PCI}\n${entry.distance} meters\nAzimuth: ${roundedAzimuth}°`);
+    
+            const kmlData = [];
+            const processedLocations = new Set();
+    
+            result.kml.Document.Placemark.forEach(placemark => {
+                if (placemark.ExtendedData && placemark.ExtendedData.SchemaData) {
+                    const schemaData = placemark.ExtendedData.SchemaData;
+                    const dataEntry = {};
+    
+                    schemaData.SimpleData.forEach(simpleData => {
+                        dataEntry[simpleData.$.name] = simpleData._;
+                    });
+    
+                    const locationKey = `${dataEntry.y}_${dataEntry.x}`;
+    
+                    if (!processedLocations.has(locationKey)) {
+                        kmlData.push(dataEntry);
+                        processedLocations.add(locationKey);
+                    }
+                }
             });
-          });
-
-
-          delete waitForCoordinates[chatId];
+    
+            kmlData.forEach(entry => {
+                const kmlLatitude = parseFloat(entry.y);
+                const kmlLongitude = parseFloat(entry.x);
+    
+                const distance = geolib.getDistance(
+                    { latitude, longitude },
+                    { latitude: kmlLatitude, longitude: kmlLongitude }
+                );
+    
+                entry.distance = distance;
+            });
+    
+            // Sort the entire kmlData array based on distance
+            kmlData.sort((a, b) => a.distance - b.distance);
+    
+            // Create an object to store PCI values by site
+            const pciBySite = {};
+    
+            kmlData.forEach(entry => {
+                const site = entry.site;
+    
+                // Check if the site exists in pciBySite
+                if (!pciBySite[site]) {
+                    pciBySite[site] = [];
+                }
+    
+                // Add PCI value to the site's array in pciBySite
+                pciBySite[site].push(entry.PCI);
+            });
+    
+            // Iterate over each site and send a message with its PCI values
+            Object.entries(pciBySite).forEach(([site, pcis]) => {
+                const sortedPCIs = pcis.sort(); // Sort PCI values for each site
+    
+                // Create a message with sorted PCI values
+                const pciMessage = sortedPCIs.map(pci => `PCI: ${pci}`).join(', ');
+    
+                bot.sendMessage(chatId, `Site: ${site}\nPCIs: ${pciMessage}`);
+            });
+    
+            delete waitForCoordinates[chatId];
         });
-      } catch (error) {
+    } catch (error) {
         console.error('Error reading KML file:', error);
         bot.sendMessage(chatId, 'Error reading KML file. Please try again.');
-      }
+    }
+    
     }
   }
 });
