@@ -2,11 +2,23 @@ const TelegramBot = require('node-telegram-bot-api');
 const fs = require('fs');
 const parseString = require('xml2js').parseString;
 const geolib = require('geolib');
+const express = require('express');
+const bodyParser = require('body-parser');
 
 const token = '6773169350:AAFMhb2bAWuwzUdxgW0bL4o2xUr4qowOCDU';  // Replace with your actual Telegram bot token
-const bot = new TelegramBot(token, { polling: true });
+const bot = new TelegramBot(token);
 
-console.log('Bot is running!');
+const app = express();
+const port = 3000; // Replace with your desired port
+
+app.use(bodyParser.json());
+
+// Webhook endpoint
+const WEBHOOK_ENDPOINT = '/azimuth-webhook'; // Replace with your desired endpoint
+const WEBHOOK_URL = `https://azimuthbot.onrender.com${WEBHOOK_ENDPOINT}`;
+
+// Set the webhook
+bot.setWebHook(WEBHOOK_URL);
 
 const waitForCoordinates = {};
 
@@ -40,6 +52,20 @@ bot.onText(/\/azimuth/, (msg) => {
   bot.sendMessage(chatId, 'Please enter the latitude:');
   waitForCoordinates[chatId] = { stage: 'latitude' };
 });
+
+// Handle incoming messages from the webhook
+app.post(WEBHOOK_ENDPOINT, (req, res) => {
+  const { body } = req;
+  bot.processUpdate(body);
+  res.sendStatus(200);
+});
+
+// Start the Express server
+app.listen(port, () => {
+  console.log(`Webhook server is running on port ${port}`);
+});
+
+
 
 // Callback query handler
 bot.on('callback_query', (callbackQuery) => {
