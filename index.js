@@ -9,7 +9,7 @@ const token = '6773169350:AAFMhb2bAWuwzUdxgW0bL4o2xUr4qowOCDU';  // Replace with
 const bot = new TelegramBot(token);
 
 const app = express();
-const port = 3000; // Replace with your desired port
+const port = 10000; // Replace with your desired port
 
 app.use(bodyParser.json());
 
