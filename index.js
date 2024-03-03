@@ -9,7 +9,7 @@ const token = '6773169350:AAFMhb2bAWuwzUdxgW0bL4o2xUr4qowOCDU';  // Replace with
 const bot = new TelegramBot(token);
 
 const app = express();
-const port = 3000; // Replace with your desired port
+const port = 10000; // Replace with your desired port
 
 app.use(bodyParser.json());
 
@@ -24,7 +24,8 @@ const waitForCoordinates = {};
 
 const keyboard = [
   [{ text: '/azimuth' }],
-  [{ text: '/reset' }]
+  [{ text: '/reset' }],
+  [{ text: '/search' }]
 ];
 
 const replyOptions = { reply_markup: { keyboard, one_time_keyboard: true, resize_keyboard: true } };
@@ -87,18 +88,33 @@ bot.onText(/\/start/, (msg) => {
 });
 
 // Text message handler
+// ... (previous code)
+
+// ... (previous code)
+
+// Text message handler
 bot.on('text', (msg) => {
   const chatId = msg.chat.id;
+  const messageText = msg.text.trim();
 
-  if (waitForCoordinates[chatId]) {
+  if (messageText.startsWith('/azimuth')) {
+    bot.sendMessage(chatId, 'Please enter the latitude:');
+    waitForCoordinates[chatId] = { stage: 'latitude' };
+  } else if (messageText.startsWith('/reset')) {
+    delete waitForCoordinates[chatId];
+    bot.sendMessage(chatId, 'Operation cancelled. Please choose an option:', replyOptions);
+  } else if (messageText.startsWith('/search')) {
+    bot.sendMessage(chatId, 'Please enter the PCI number you want to search:');
+    waitForCoordinates[chatId] = { stage: 'search' };
+  } else if (waitForCoordinates[chatId]) {
     const currentStage = waitForCoordinates[chatId].stage;
 
     if (currentStage === 'latitude') {
-      waitForCoordinates[chatId].latitude = parseFloat(msg.text);
+      waitForCoordinates[chatId].latitude = parseFloat(messageText);
       bot.sendMessage(chatId, 'Please enter the longitude:');
       waitForCoordinates[chatId].stage = 'longitude';
     } else if (currentStage === 'longitude') {
-      waitForCoordinates[chatId].longitude = parseFloat(msg.text);
+      waitForCoordinates[chatId].longitude = parseFloat(messageText);
 
       const latitude = waitForCoordinates[chatId].latitude;
       const longitude = waitForCoordinates[chatId].longitude;
@@ -167,7 +183,68 @@ bot.on('text', (msg) => {
             });
           });
 
-
+          delete waitForCoordinates[chatId];
+        });
+      } catch (error) {
+        console.error('Error reading KML file:', error);
+        bot.sendMessage(chatId, 'Error reading KML file. Please try again.');
+      }
+    } else if (currentStage === 'search') {
+      const pciToSearch = parseFloat(messageText);
+    
+      try {
+        const xmlData = fs.readFileSync('doc.kml', 'utf-8');
+        parseString(xmlData, { explicitArray: false }, (err, result) => {
+          if (err) {
+            console.error('Error parsing XML:', err);
+            bot.sendMessage(chatId, 'Error parsing XML. Please try again.');
+            return;
+          }
+    
+          const kmlData = result.kml.Document.Placemark.filter(placemark => {
+            const simpleData = placemark.SimpleData;
+            return (
+              simpleData &&
+              Array.isArray(simpleData) &&
+              simpleData.find(
+                data =>
+                  data &&
+                  data.$ &&
+                  data.$.name === 'PCI' &&
+                  parseFloat(data._) === pciToSearch
+              )
+            );
+          });
+    
+          console.log('KML Data:', kmlData);
+    
+          if (kmlData.length === 0) {
+            bot.sendMessage(chatId, `No location found with PCI number: ${pciToSearch}`);
+          } else {
+            kmlData.forEach(entry => {
+              // Calculate distance and bearing here
+              const kmlLatitude = parseFloat(entry.y);
+              const kmlLongitude = parseFloat(entry.x);
+    
+              const distance = geolib.getDistance(
+                { latitude, longitude },
+                { latitude: kmlLatitude, longitude: kmlLongitude }
+              );
+    
+              const azimuth = geolib.getRhumbLineBearing(
+                { latitude, longitude },
+                { latitude: kmlLatitude, longitude: kmlLongitude }
+              );
+    
+              const roundedAzimuth = Math.round(azimuth);
+    
+              bot.sendMessage(
+                chatId,
+                `PCI: ${pciToSearch}\n${distance} meters\nAzimuth: ${roundedAzimuth}°`
+              );
+            });
+          }
+    
           delete waitForCoordinates[chatId];
         });
       } catch (error) {
@@ -175,5 +252,8 @@ bot.on('text', (msg) => {
         bot.sendMessage(chatId, 'Error reading KML file. Please try again.');
       }
     }
+    
   }
 });
+
+// ... (rest of the code)
