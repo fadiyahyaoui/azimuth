@@ -156,44 +156,16 @@ bot.on('text', (msg) => {
           blocks.forEach(block => block.sort((a, b) => a.distance - b.distance));
 
           blocks.forEach(block => {
-            const pciBySite = {};
-        
             block.forEach(entry => {
-                const site = entry.site;
-                const azimuth = geolib.getRhumbLineBearing(
-                    { latitude, longitude },
-                    { latitude: parseFloat(entry.y), longitude: parseFloat(entry.x) }
-                );
-                const distance = entry.distance;
-                const roundedAzimuth = Math.round(azimuth);
-        
-                if (!pciBySite[site]) {
-                    pciBySite[site] = [];
-                }
-        
-                pciBySite[site].push({ PCI: entry.PCI, distance, azimuth });
-        
-                bot.sendMessage(chatId, `Secteur: ${entry.sector}\nPCI: ${entry.PCI}\n${entry.distance} meters\nAzimuth: ${roundedAzimuth}°`);
+              const azimuth = geolib.getRhumbLineBearing(
+                { latitude, longitude },
+                { latitude: parseFloat(entry.y), longitude: parseFloat(entry.x) }
+              );
+              const roundedAzimuth = Math.round(azimuth);
+
+              bot.sendMessage(chatId, `Secteur: ${entry.sector}\nPCI: ${entry.PCI}\n${entry.distance} meters\nAzimuth: ${roundedAzimuth}°`);
             });
-        
-            Object.entries(pciBySite).forEach(([site, pcis]) => {
-                // Sort PCI values by distance
-                pcis.sort((a, b) => a.distance - b.distance);
-        
-                // Create a message with sorted PCI values
-                const pciMessage = pcis
-                    .map(pciInfo => `PCI: ${pciInfo.PCI} - Distance: ${pciInfo.distance} meters - Azimuth: ${Math.round(pciInfo.azimuth)}°`)
-                    .join('\n');
-        
-                // Send the message you provided
-                bot.sendMessage(
-                    chatId,
-                    `Secteur: ${entry.sector}\nPCI(s) for the same site: ${pciMessage}\n${entry.distance} meters\nAzimuth: ${roundedAzimuth}°`
-                );
-            });
-        });
-        
-          
+          });
 
 
           delete waitForCoordinates[chatId];
