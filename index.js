@@ -157,15 +157,27 @@ bot.on('text', (msg) => {
 
           blocks.forEach(block => {
             block.forEach(entry => {
+              // Filter entries with the same site
+              const entriesWithSameSite = kmlData.filter(e => e.site === entry.site);
+          
+              // Extract PCI values from filtered entries
+              const pcis = entriesWithSameSite.map(e => e.PCI).join(', ');
+          
+              // Calculate azimuth
               const azimuth = geolib.getRhumbLineBearing(
                 { latitude, longitude },
                 { latitude: parseFloat(entry.y), longitude: parseFloat(entry.x) }
               );
               const roundedAzimuth = Math.round(azimuth);
-
-              bot.sendMessage(chatId, `Secteur: ${entry.sector}\nPCI: ${entry.PCI}\n${entry.distance} meters\nAzimuth: ${roundedAzimuth}°`);
+          
+              // Send message with PCI values for the same site
+              bot.sendMessage(
+                chatId,
+                `Secteur: ${entry.sector}\nPCI(s) for the same site: ${pcis}\n${entry.distance} meters\nAzimuth: ${roundedAzimuth}°`
+              );
             });
           });
+          
 
 
           delete waitForCoordinates[chatId];
