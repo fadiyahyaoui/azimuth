@@ -1,0 +1,21 @@
+{
+  "name": "botyaz",
+  "version": "1.0.0",
+  "description": "za founder",
+  "main": "index.js",
+  "repository": "https://github.com/fadiyahyaoui/azbot.git",
+  "author": "fadiyahyaoui <yahyaouifadi@gmail.com>",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "fs": "^0.0.2",
+    "geolib": "^3.3.4",
+    "node-telegram-bot-api": "^0.64.0",
+    "request": "^2.34",
+    "xml2js": "^0.6.2"
+  }
+}
