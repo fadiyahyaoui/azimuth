@@ -191,7 +191,7 @@ bot.on('text', (msg) => {
       }
     } else if (currentStage === 'search') {
       const pciToSearch = parseFloat(messageText);
-
+    
       try {
         const xmlData = fs.readFileSync('doc.kml', 'utf-8');
         parseString(xmlData, { explicitArray: false }, (err, result) => {
@@ -200,7 +200,7 @@ bot.on('text', (msg) => {
             bot.sendMessage(chatId, 'Error parsing XML. Please try again.');
             return;
           }
-
+    
           const kmlData = result.kml.Document.Placemark.filter(placemark => {
             const simpleData = placemark.SimpleData;
             return (
@@ -215,7 +215,9 @@ bot.on('text', (msg) => {
               )
             );
           });
-
+    
+          console.log('KML Data:', kmlData);
+    
           if (kmlData.length === 0) {
             bot.sendMessage(chatId, `No location found with PCI number: ${pciToSearch}`);
           } else {
@@ -223,26 +225,26 @@ bot.on('text', (msg) => {
               // Calculate distance and bearing here
               const kmlLatitude = parseFloat(entry.y);
               const kmlLongitude = parseFloat(entry.x);
-
+    
               const distance = geolib.getDistance(
                 { latitude, longitude },
                 { latitude: kmlLatitude, longitude: kmlLongitude }
               );
-
+    
               const azimuth = geolib.getRhumbLineBearing(
                 { latitude, longitude },
                 { latitude: kmlLatitude, longitude: kmlLongitude }
               );
-
+    
               const roundedAzimuth = Math.round(azimuth);
-
+    
               bot.sendMessage(
                 chatId,
                 `PCI: ${pciToSearch}\n${distance} meters\nAzimuth: ${roundedAzimuth}°`
               );
             });
           }
-
+    
           delete waitForCoordinates[chatId];
         });
       } catch (error) {
@@ -250,6 +252,7 @@ bot.on('text', (msg) => {
         bot.sendMessage(chatId, 'Error reading KML file. Please try again.');
       }
     }
+    
   }
 });
 
