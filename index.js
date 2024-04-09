@@ -4,6 +4,8 @@ const parseString = require('xml2js').parseString;
 const geolib = require('geolib');
 const express = require('express');
 const bodyParser = require('body-parser');
+const axios = require('axios');
+
 
 const token = '6773169350:AAFMhb2bAWuwzUdxgW0bL4o2xUr4qowOCDU';  // Replace with your actual Telegram bot token
 const bot = new TelegramBot(token);
@@ -19,6 +21,19 @@ const WEBHOOK_URL = `https://azimuth-4pkc.onrender.com${WEBHOOK_ENDPOINT}`;
 
 // Set the webhook
 bot.setWebHook(WEBHOOK_URL);
+
+// Function to send request to the webhook endpoint
+async function keepServiceAlive() {
+  try {
+    const response = await axios.post(WEBHOOK_URL);
+    console.log('Keep-alive request sent:', response.status);
+  } catch (error) {
+    console.error('Error sending keep-alive request:', error.message);
+  }
+}
+
+// Set interval to send keep-alive request every 5 minutes (adjust as needed)
+setInterval(keepServiceAlive, 3 * 60 * 1000); // 5 minutes in milliseconds
 
 const waitForCoordinates = {};
 
