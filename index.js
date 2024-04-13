@@ -83,7 +83,7 @@ app.listen(port, () => {
 
 
 // Callback query handler
-bot.on('callback_query', (callbackQuery) => {
+ bot.on('callback_query', (callbackQuery) => {
   const chatId = callbackQuery.message.chat.id;
 
   if (callbackQuery.data === 'azimuth') {
@@ -185,7 +185,7 @@ bot.on('text', (msg) => {
 
           delete waitForCoordinates[chatId];
         });
-      } catch (error) {
+       } catch (error) {
         console.error('Error reading KML file:', error);
         bot.sendMessage(chatId, 'Error reading KML file. Please try again.');
       }
