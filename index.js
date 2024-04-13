@@ -19,7 +19,8 @@ app.use(bodyParser.json());
 const WEBHOOK_ENDPOINT = '/azimuth-djoh-webhook'; // Replace with your desired endpoint
 const WEBHOOK_URL = `https://azimuth-djoh.onrender.com${WEBHOOK_ENDPOINT}`;
 
-// Set the webhook
+
+// Set the 
 bot.setWebHook(WEBHOOK_URL);
 
 // Function to send request to the webhook endpoint
