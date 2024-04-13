@@ -16,8 +16,8 @@ const port = 3000; // Replace with your desired port
 app.use(bodyParser.json());
 
 // Webhook endpoint
-const WEBHOOK_ENDPOINT = '/azimuth-4pkc-webhook'; // Replace with your desired endpoint
-const WEBHOOK_URL = `https://azimuth-4pkc.onrender.com${WEBHOOK_ENDPOINT}`;
+const WEBHOOK_ENDPOINT = '/azimuth-djoh-webhook'; // Replace with your desired endpoint
+const WEBHOOK_URL = `https://azimuth-djoh.onrender.com${WEBHOOK_ENDPOINT}`;
 
 // Set the webhook
 bot.setWebHook(WEBHOOK_URL);
